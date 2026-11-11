@@ -1,5 +1,8 @@
 package eu.kanade.tachiyomi.animeextension.es.animeav1
 
+import eu.kanade.tachiyomi.animeextension.es.animeav1.extractors.Mp4uploadExtractor
+import eu.kanade.tachiyomi.animeextension.es.animeav1.extractors.StreamWishExtractor
+import eu.kanade.tachiyomi.animeextension.es.animeav1.extractors.VoeExtractor
 import eu.kanade.tachiyomi.animeextension.es.animeav1.extractors.ZillaExtractor
 import eu.kanade.tachiyomi.animeextension.es.animeav1.network.AnubisInterceptor
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
@@ -7,9 +10,6 @@ import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
-import eu.kanade.tachiyomi.lib.mp4uploadextractor.Mp4uploadExtractor
-import eu.kanade.tachiyomi.lib.streamwishextractor.StreamWishExtractor
-import eu.kanade.tachiyomi.lib.voeextractor.VoeExtractor
 import eu.kanade.tachiyomi.network.GET
 import okhttp3.OkHttpClient
 import okhttp3.Request

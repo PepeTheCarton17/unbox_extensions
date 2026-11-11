@@ -26,40 +26,46 @@ def get_file_sha256(filepath: Path) -> str:
 def extract_apk_metadata(apk_path: Path) -> dict:
     """Extrae metadatos del APK analizando el archivo o su nombre."""
     filename = apk_path.name
-    # Convención estándar: aniyomi-<lang>.<pkg>-v<version>.<code?>.apk o similar
+
+    # Valores por defecto para AnimeAV1 si no matchea el regex completo
+    name_clean = "AnimeAV1"
+    pkg_full = "eu.kanade.tachiyomi.animeextension.es.animeav1"
+    version_str = "16.1"
+    code_val = 1
+    lang_str = "es"
+    base_url = "https://animeav1.com"
+
     match = re.search(r'(?:aniyomi|tachiyomi)-([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_.-]+)-v([0-9.]+)\.apk', filename)
-
-    name_guess = apk_path.stem.replace("aniyomi-", "").replace("tachiyomi-", "")
-    pkg_guess = f"eu.kanade.tachiyomi.animeextension.{name_guess}"
-    version_guess = "16.1"
-    code_guess = 1
-    lang_guess = "es"
-
     if match:
-        lang_guess = match.group(1)
-        pkg_guess = f"eu.kanade.tachiyomi.animeextension.{lang_guess}.{match.group(2)}"
-        version_guess = match.group(3)
-        code_guess = int(version_guess.split('.')[-1]) if '.' in version_guess else 1
+        lang_str = match.group(1)
+        pkg_full = f"eu.kanade.tachiyomi.animeextension.{lang_str}.{match.group(2)}"
+        version_str = match.group(3)
+        code_val = int(version_str.split('.')[-1]) if '.' in version_str else 1
+    elif "animeav1" in filename.lower():
+        name_clean = "AnimeAV1"
+        pkg_full = "eu.kanade.tachiyomi.animeextension.es.animeav1"
+        lang_str = "es"
+        base_url = "https://animeav1.com"
 
     sha256 = get_file_sha256(apk_path)
     file_size = apk_path.stat().st_size
 
     return {
-        "name": f"Aniyomi: {name_guess.capitalize()}",
-        "pkg": pkg_guess,
+        "name": f"Aniyomi: {name_clean}",
+        "pkg": pkg_full,
         "apk": filename,
-        "lang": lang_guess,
-        "code": code_guess,
-        "version": version_guess,
+        "lang": lang_str,
+        "code": code_val,
+        "version": version_str,
         "nsfw": 0,
         "sha256": sha256,
         "size": file_size,
         "sources": [
             {
-                "name": name_guess.capitalize(),
-                "lang": lang_guess,
-                "id": str(abs(hash(pkg_guess))),
-                "baseUrl": f"https://{name_guess}.example.com"
+                "name": name_clean,
+                "lang": lang_str,
+                "id": str(abs(hash(pkg_full))),
+                "baseUrl": base_url
             }
         ]
     }
