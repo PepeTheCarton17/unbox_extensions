@@ -114,9 +114,9 @@ def generate_index(apk_dir: Path, output_dir: Path, repo_name: str, repo_url: st
 def main():
     parser = argparse.ArgumentParser(description="Generador de índices para repositorios de Nekoyomi")
     parser.add_argument("--apk-dir", default="./apk", help="Directorio con los archivos .apk compilados")
-    parser.add_argument("--out", default="./repo_out", help="Directorio donde se generarán los índices")
-    parser.add_argument("--repo-name", default="Mi Repositorio Nekoyomi", help="Nombre visible del repositorio")
-    parser.add_argument("--repo-url", default="https://usuario.github.io/mi-repo", help="URL base del repositorio (GitHub Pages)")
+    parser.add_argument("--out", "--output-dir", dest="out", default="./repo_out", help="Directorio donde se generarán los índices")
+    parser.add_argument("--repo-name", default="Unbox Extensions", help="Nombre visible del repositorio")
+    parser.add_argument("--repo-url", default="https://pepethecarton17.github.io/unbox_extensions", help="URL base del repositorio (GitHub Pages)")
     parser.add_argument("--fingerprint", default="0000000000000000000000000000000000000000000000000000000000000000", help="Huella SHA-256 del certificado de firma")
 
     args = parser.parse_args()

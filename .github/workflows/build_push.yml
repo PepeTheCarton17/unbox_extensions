@@ -6,12 +6,20 @@ on:
       - main
     paths:
       - 'src/**'
-      - '.github/workflows/build_push.yml'
+      - '.github/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build:
@@ -28,27 +36,19 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.5
 
       - name: Build APKs
         run: |
-          chmod +x gradlew || true
-          ./gradlew assembleRelease --stacktrace
+          gradle assembleRelease --stacktrace
 
-      - name: Sign APKs
-        uses: r0adkll/sign-android-release@v1
-        id: sign_app
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          releaseDirectory: src/es/animeav1/build/outputs/apk/release
-          signingKey: ${{ secrets.SIGNING_KEY }}
-          alias: ${{ secrets.ALIAS }}
-          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-        continue-on-error: true
+          python-version: '3.11'
 
       - name: Collect Artifacts & Generate Repo Index
         run: |
@@ -56,12 +56,12 @@ jobs:
           mkdir -p apk_repo/icon
           find src -name "*.apk" -exec cp {} apk_repo/apk/ \;
           find src -name "ic_launcher.png" -exec cp {} apk_repo/icon/ \;
-          python3 .github/scripts/generate-repo-index.py --apk-dir apk_repo/apk --output-dir apk_repo
+          python3 .github/scripts/generate-repo-index.py --apk-dir apk_repo/apk --out apk_repo --repo-url "https://pepethecarton17.github.io/unbox_extensions" --repo-name "Unbox Extensions"
 
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/main'
+      - name: Deploy to GitHub Pages (gh-pages)
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./apk_repo
-          keep_files: false
+          publish_branch: gh-pages
+          force_orphan: true
