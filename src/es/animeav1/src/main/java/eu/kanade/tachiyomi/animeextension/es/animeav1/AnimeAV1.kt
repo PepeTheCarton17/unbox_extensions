@@ -116,6 +116,7 @@ class AnimeAV1 : ParsedAnimeHttpSource() {
 
         // 1. Intentar extracción directa de enlaces en el HTML
         val links = document.select("a[href^=/media/], a[href*=/media/]")
+            .toList()
             .filter { it.attr("href").matches(Regex(""".+/media/[^/]+/\d+$""")) }
 
         if (links.isNotEmpty()) {
