@@ -3,7 +3,7 @@
 Nekoyomi / Aniyomi Repo Index Generator (generate-repo-index.py)
 Genera los archivos de índice para un repositorio de extensiones compatible con Nekoyomi/Aniyomi/Mihon:
 - repo.json (metadatos del repo y huella SHA-256 signingKeyFingerprint)
-- index.json e index.min.json (listado canónico de extensiones y fuentes)
+- index.json e index.min.json (listado canónico de extensiones y fuentes con ID numérico Long)
 - index.pb (índice binario compatible)
 """
 
@@ -16,7 +16,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-DEFAULT_FINGERPRINT = "2f4cdf7ed264f6e6aa0d7655b7d6222df6d9f0ffde924f0eea4c57be2dc8c75c"
+DEFAULT_FINGERPRINT = "f69140e1e75ae231d23f4820211adab2333e83a5249e4140f392e707cfe491b8"
 
 def get_file_sha256(filepath: Path) -> str:
     h = hashlib.sha256()
@@ -47,17 +47,6 @@ def extract_apk_metadata(apk_path: Path) -> tuple[dict, Path]:
     """Extrae metadatos del APK asegurando la convención de nombres aniyomi."""
     filename = apk_path.name
 
-    # Normalizar nombre a la convención aniyomi-{lang}.{id}-v{ver}.apk
-    if not (filename.startswith("aniyomi-") or filename.startswith("tachiyomi-")):
-        new_name = "aniyomi-es.animeav1-v16.1.apk"
-        new_path = apk_path.parent / new_name
-        if apk_path != new_path:
-            if new_path.exists():
-                new_path.unlink()
-            apk_path.rename(new_path)
-            apk_path = new_path
-            filename = new_name
-
     name_clean = "AnimeAV1"
     pkg_full = "eu.kanade.tachiyomi.animeextension.es.animeav1"
     version_str = "16.1"
@@ -65,7 +54,7 @@ def extract_apk_metadata(apk_path: Path) -> tuple[dict, Path]:
     lang_str = "es"
     base_url = "https://animeav1.com"
 
-    match = re.search(r'(?:aniyomi|tachiyomi)-([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_.-]+)-v([0-9.]+)\.apk', filename)
+    match = re.search(r'(?:aniyomi|tachiyomi)-([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_.-]+)-v([0-9.]+)(?:-release)?\.apk', filename)
     if match:
         lang_str = match.group(1)
         pkg_full = f"eu.kanade.tachiyomi.animeextension.{lang_str}.{match.group(2)}"
@@ -80,8 +69,8 @@ def extract_apk_metadata(apk_path: Path) -> tuple[dict, Path]:
     sha256 = get_file_sha256(apk_path)
     file_size = apk_path.stat().st_size
 
-    # ID de fuente determinista y positivo de 64 bits para Nekoyomi
-    source_id = str(abs(hash(pkg_full)) % (10**18))
+    # ID de fuente numérico (Long de 63 bits positivo) según NetworkLegacyExtension.Source de Mihon/Nekoyomi
+    source_id = abs(hash(pkg_full)) % (2**62)
 
     meta = {
         "name": f"Aniyomi: {name_clean}",
@@ -112,6 +101,10 @@ def generate_index(apk_dir: Path, output_dir: Path, repo_name: str, repo_url: st
     extensions = []
     detected_fingerprint = signing_key_fingerprint
 
+    # Carpeta icon para asegurar copias con nombre de paquete
+    icon_dir = output_dir / "icon"
+    icon_dir.mkdir(parents=True, exist_ok=True)
+
     for apk in sorted(apk_files):
         meta, real_path = extract_apk_metadata(apk)
         extensions.append(meta)
@@ -122,6 +115,12 @@ def generate_index(apk_dir: Path, output_dir: Path, repo_name: str, repo_url: st
             fp = extract_signing_fingerprint_from_apk(real_path)
             if fp:
                 detected_fingerprint = fp
+
+        # Asegurar icono con nombre del paquete: icon/{pkg}.png
+        pkg_icon = icon_dir / f"{meta['pkg']}.png"
+        generic_icon = icon_dir / "ic_launcher.png"
+        if generic_icon.exists() and not pkg_icon.exists():
+            pkg_icon.write_bytes(generic_icon.read_bytes())
 
     # 1. Guardar index.json e index.min.json
     index_json_path = output_dir / "index.json"
@@ -134,12 +133,13 @@ def generate_index(apk_dir: Path, output_dir: Path, repo_name: str, repo_url: st
         json.dump(extensions, f, separators=(',', ':'), ensure_ascii=False)
 
     # 2. Guardar repo.json
+    # index_v2 debe ser None para que Nekoyomi no salte a URLs externas y consuma repo local
     repo_meta = {
-        "index_v2": f"{repo_url.rstrip('/')}/index.pb",
+        "index_v2": None,
         "meta": {
             "name": repo_name,
             "shortName": repo_name.lower().replace(" ", ""),
-            "website": repo_url,
+            "website": "https://github.com/PepeTheCarton17/unbox_extensions",
             "signingKeyFingerprint": detected_fingerprint
         }
     }
@@ -162,7 +162,7 @@ def main():
     parser.add_argument("--apk-dir", default="./apk", help="Directorio con los archivos .apk compilados")
     parser.add_argument("--out", "--output-dir", dest="out", default="./repo_out", help="Directorio donde se generarán los índices")
     parser.add_argument("--repo-name", default="Unbox Extensions", help="Nombre visible del repositorio")
-    parser.add_argument("--repo-url", default="https://pepethecarton17.github.io/unbox_extensions", help="URL base del repositorio")
+    parser.add_argument("--repo-url", default="https://raw.githubusercontent.com/PepeTheCarton17/unbox_extensions/gh-pages", help="URL base del repositorio")
     parser.add_argument("--fingerprint", default=DEFAULT_FINGERPRINT, help="Huella SHA-256 del certificado de firma")
 
     args = parser.parse_args()
