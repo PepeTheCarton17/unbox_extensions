@@ -18,10 +18,10 @@ class VoeExtractor(private val client: OkHttpClient) {
 
         val videoList = mutableListOf<Video>()
         hlsMatch?.groupValues?.get(1)?.let { streamUrl ->
-            videoList.add(Video(videoUrl = streamUrl, videoTitle = "${prefix}HLS (Original)"))
+            videoList.add(Video(streamUrl, "${prefix}HLS (Original)", streamUrl))
         }
         mp4Match?.groupValues?.get(1)?.let { streamUrl ->
-            videoList.add(Video(videoUrl = streamUrl, videoTitle = "${prefix}MP4 (Directo)"))
+            videoList.add(Video(streamUrl, "${prefix}MP4 (Directo)", streamUrl))
         }
 
         return videoList

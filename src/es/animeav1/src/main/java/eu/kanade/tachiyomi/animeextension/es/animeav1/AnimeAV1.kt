@@ -200,7 +200,7 @@ class AnimeAV1 : ParsedAnimeHttpSource() {
                 else -> {
                     // Servidores con enlace directo
                     if (embedUrl.endsWith(".m3u8") || embedUrl.endsWith(".mp4")) {
-                        videoList.add(Video(videoUrl = embedUrl, videoTitle = serverName, headers = headers))
+                        videoList.add(Video(embedUrl, serverName, embedUrl, headers = headers))
                     }
                 }
             }

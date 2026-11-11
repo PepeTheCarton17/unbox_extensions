@@ -22,7 +22,7 @@ class Mp4uploadExtractor(private val client: OkHttpClient) {
             .build()
 
         return listOf(
-            Video(videoUrl = streamUrl, videoTitle = "${prefix}MP4 (Directo)", headers = videoHeaders)
+            Video(streamUrl, "${prefix}MP4 (Directo)", streamUrl, headers = videoHeaders)
         )
     }
 }

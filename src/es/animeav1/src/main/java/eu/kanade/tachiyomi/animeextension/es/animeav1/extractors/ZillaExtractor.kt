@@ -20,8 +20,9 @@ class ZillaExtractor(private val client: OkHttpClient) {
         return runCatching {
             listOf(
                 Video(
+                    url = playlistUrl,
+                    quality = "${prefix}HLS (Original)",
                     videoUrl = playlistUrl,
-                    videoTitle = "${prefix}HLS (Original)",
                     headers = videoHeaders
                 )
             )
