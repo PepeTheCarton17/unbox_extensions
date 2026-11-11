@@ -1,10 +1,15 @@
 package eu.kanade.tachiyomi.animeextension.es.animeav1
 
+import android.app.Application
+import android.content.SharedPreferences
+import androidx.preference.ListPreference
+import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animeextension.es.animeav1.extractors.Mp4uploadExtractor
 import eu.kanade.tachiyomi.animeextension.es.animeav1.extractors.StreamWishExtractor
 import eu.kanade.tachiyomi.animeextension.es.animeav1.extractors.VoeExtractor
 import eu.kanade.tachiyomi.animeextension.es.animeav1.extractors.ZillaExtractor
 import eu.kanade.tachiyomi.animeextension.es.animeav1.network.AnubisInterceptor
+import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
@@ -17,9 +22,11 @@ import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.util.ArrayList
 
-class AnimeAV1 : ParsedAnimeHttpSource() {
+class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
 
     override val name = "AnimeAV1"
 
@@ -33,9 +40,31 @@ class AnimeAV1 : ParsedAnimeHttpSource() {
         .addInterceptor(AnubisInterceptor())
         .build()
 
+    private val preferences: SharedPreferences by lazy {
+        Injekt.get<Application>().getSharedPreferences("source_$id", 0)
+    }
+
+    companion object {
+        private const val PREF_SERVER_KEY = "preferred_server"
+        private const val PREF_SERVER_DEFAULT = "MP4Upload"
+        private val SERVER_ENTRIES = arrayOf("MP4Upload (Recomendado)", "Voe", "Byse (StreamWish)", "HLS (Zilla)")
+        private val SERVER_VALUES = arrayOf("MP4Upload", "Voe", "Byse", "Zilla")
+
+        private const val PREF_LANG_KEY = "preferred_language"
+        private const val PREF_LANG_DEFAULT = "SUB"
+        private val LANG_ENTRIES = arrayOf("Subtitulado (SUB)", "Doblado / Latino (DUB)", "Todos (Mostrar ambos)")
+        private val LANG_VALUES = arrayOf("SUB", "DUB", "ALL")
+
+        private const val PREF_QUALITY_KEY = "preferred_quality"
+        private const val PREF_QUALITY_DEFAULT = "1080p"
+        private val QUALITY_ENTRIES = arrayOf("1080p", "720p", "480p", "360p")
+        private val QUALITY_VALUES = arrayOf("1080p", "720p", "480p", "360p")
+    }
+
     // ============================== Popular Anime ==============================
 
-    override fun popularAnimeRequest(page: Int): Request = GET("$baseUrl/catalogo?page=$page", headers)
+    override fun popularAnimeRequest(page: Int): Request =
+        GET("$baseUrl/catalogo?order=popular&page=$page", headers)
 
     override fun popularAnimeSelector(): String = "article"
 
@@ -43,10 +72,18 @@ class AnimeAV1 : ParsedAnimeHttpSource() {
         val anime = SAnime.create()
         val link = element.selectFirst("a[href*=/media/]")
         val href = link?.attr("href") ?: ""
-        val fullUrl = if (href.startsWith("http")) href else "$baseUrl$href"
+        // Si el enlace apunta a un episodio /media/{slug}/{num}, convertir a /media/{slug}
+        val cleanHref = if (href.matches(Regex(""".+/media/[^/]+/\d+$"""))) {
+            href.substringBeforeLast("/")
+        } else {
+            href
+        }
+        val fullUrl = if (cleanHref.startsWith("http")) cleanHref else "$baseUrl$cleanHref"
         anime.setUrlWithoutDomain(fullUrl)
 
         val titleEl = element.selectFirst("h3")
+            ?: element.selectFirst("div[class*=text-2xs]")
+            ?: element.selectFirst("header div")
         val altTitle = element.selectFirst("span.sr-only")?.text()?.replace("Ver ", "")?.trim()
         anime.title = titleEl?.text()?.trim() ?: altTitle ?: "Sin título"
 
@@ -59,7 +96,8 @@ class AnimeAV1 : ParsedAnimeHttpSource() {
 
     // ============================== Latest Updates =============================
 
-    override fun latestUpdatesRequest(page: Int): Request = GET("$baseUrl/catalogo?page=$page", headers)
+    override fun latestUpdatesRequest(page: Int): Request =
+        GET("$baseUrl/catalogo?order=latest_released&page=$page", headers)
 
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
 
@@ -70,7 +108,8 @@ class AnimeAV1 : ParsedAnimeHttpSource() {
     // =============================== Search Anime ==============================
 
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
-        return GET("$baseUrl/catalogo?search=$query&page=$page", headers)
+        val path = AnimeAV1Filters.buildQuery(page, query, filters)
+        return GET("$baseUrl$path", headers)
     }
 
     override fun searchAnimeSelector(): String = popularAnimeSelector()
@@ -78,6 +117,8 @@ class AnimeAV1 : ParsedAnimeHttpSource() {
     override fun searchAnimeFromElement(element: Element): SAnime = popularAnimeFromElement(element)
 
     override fun searchAnimeNextPageSelector(): String = popularAnimeNextPageSelector()
+
+    override fun getFilterList(): AnimeFilterList = AnimeAV1Filters.getFilterList()
 
     // ============================== Anime Details ==============================
 
@@ -114,7 +155,7 @@ class AnimeAV1 : ParsedAnimeHttpSource() {
         val document = response.asJsoup()
         val episodeList = ArrayList<SEpisode>()
 
-        // 1. Intentar extracción directa de enlaces en el HTML
+        // 1. Extracción directa de enlaces en el HTML
         val links = document.select("a[href^=/media/], a[href*=/media/]")
             .toList()
             .filter { it.attr("href").matches(Regex(""".+/media/[^/]+/\d+$""")) }
@@ -170,58 +211,116 @@ class AnimeAV1 : ParsedAnimeHttpSource() {
         val html = response.body.string()
         val videoList = mutableListOf<Video>()
 
-        // 1. Extraer los servidores de reproducción desde el objeto embeds de SvelteKit
-        val serverMatches = Regex("""server:\s*["']([^"']+)["'],\s*url:\s*["'](https?://[^"']+)["']""").findAll(html)
+        // Extraer bloques independientes SUB y DUB (o LAT)
+        val dubBlock = Regex("""DUB\s*:\s*\[([^]]*)]""").find(html)?.groupValues?.get(1)
+            ?: Regex("""LAT\s*:\s*\[([^]]*)]""").find(html)?.groupValues?.get(1)
+        val subBlock = Regex("""SUB\s*:\s*\[([^]]*)]""").find(html)?.groupValues?.get(1)
 
-        for (match in serverMatches) {
-            val serverName = match.groupValues[1].trim()
-            val embedUrl = match.groupValues[2].trim()
+        val serverRegex = Regex("""\{\s*server\s*:\s*["']([^"']+)["']\s*,\s*url\s*:\s*["'](https?://[^"']+)["']\s*\}""")
 
-            when (serverName.lowercase()) {
-                "hls", "zilla" -> {
-                    runCatching {
-                        videoList.addAll(ZillaExtractor(client).videosFromUrl(embedUrl, prefix = "Zilla - "))
-                    }
-                }
-                "voe" -> {
-                    runCatching {
-                        videoList.addAll(VoeExtractor(client).videosFromUrl(embedUrl))
-                    }
-                }
-                "mp4upload" -> {
-                    runCatching {
-                        videoList.addAll(Mp4uploadExtractor(client).getVideoFromUrl(embedUrl, headers))
-                    }
-                }
-                "byse" -> {
-                    runCatching {
-                        videoList.addAll(StreamWishExtractor(client).videosFromUrl(embedUrl, videoNameHost = "Byse - "))
-                    }
-                }
-                else -> {
-                    // Servidores con enlace directo
-                    if (embedUrl.endsWith(".m3u8") || embedUrl.endsWith(".mp4")) {
-                        videoList.add(Video(embedUrl, serverName, embedUrl, headers = headers))
-                    }
-                }
+        // 1. Procesar servidores con audio Doblado / Latino (DUB)
+        if (!dubBlock.isNullOrEmpty()) {
+            for (match in serverRegex.findAll(dubBlock)) {
+                val serverName = match.groupValues[1].trim()
+                val embedUrl = match.groupValues[2].trim()
+                extractVideosForServer(videoList, serverName, embedUrl, prefix = "[DUB] ")
             }
         }
 
-        // 2. Extraer iframes directos como respaldo
+        // 2. Procesar servidores Subtitulados (SUB)
+        if (!subBlock.isNullOrEmpty()) {
+            for (match in serverRegex.findAll(subBlock)) {
+                val serverName = match.groupValues[1].trim()
+                val embedUrl = match.groupValues[2].trim()
+                extractVideosForServer(videoList, serverName, embedUrl, prefix = "[SUB] ")
+            }
+        }
+
+        // 3. Respaldo general si los bloques no estaban separados
         if (videoList.isEmpty()) {
-            val document = org.jsoup.Jsoup.parse(html, response.request.url.toString())
-            for (iframe in document.select("iframe[src]")) {
-                val src = iframe.attr("abs:src")
-                if (src.contains("player.zilla-networks.com")) {
-                    runCatching { videoList.addAll(ZillaExtractor(client).videosFromUrl(src)) }
-                } else if (src.contains("voe.sx")) {
-                    runCatching { videoList.addAll(VoeExtractor(client).videosFromUrl(src)) }
-                } else if (src.contains("mp4upload.com")) {
-                    runCatching { videoList.addAll(Mp4uploadExtractor(client).getVideoFromUrl(src, headers)) }
-                }
+            val generalMatches = Regex("""server:\s*["']([^"']+)["'],\s*url:\s*["'](https?://[^"']+)["']""").findAll(html)
+            for (match in generalMatches) {
+                val serverName = match.groupValues[1].trim()
+                val embedUrl = match.groupValues[2].trim()
+                extractVideosForServer(videoList, serverName, embedUrl, prefix = "[SUB] ")
             }
         }
 
-        return videoList
+        return videoList.sortVideos()
+    }
+
+    private fun extractVideosForServer(videoList: MutableList<Video>, serverName: String, embedUrl: String, prefix: String) {
+        when (serverName.lowercase()) {
+            "mp4upload" -> {
+                runCatching {
+                    videoList.addAll(Mp4uploadExtractor(client).getVideoFromUrl(embedUrl, headers, prefix = "${prefix}MP4Upload - "))
+                }
+            }
+            "voe" -> {
+                runCatching {
+                    videoList.addAll(VoeExtractor(client).videosFromUrl(embedUrl, prefix = "${prefix}Voe - "))
+                }
+            }
+            "byse" -> {
+                runCatching {
+                    videoList.addAll(StreamWishExtractor(client).videosFromUrl(embedUrl, videoNameHost = "${prefix}Byse - "))
+                }
+            }
+            "hls", "zilla" -> {
+                runCatching {
+                    videoList.addAll(ZillaExtractor(client).videosFromUrl(embedUrl, prefix = "${prefix}Zilla - "))
+                }
+            }
+            else -> {
+                if (embedUrl.endsWith(".m3u8") || embedUrl.endsWith(".mp4")) {
+                    videoList.add(Video(embedUrl, "${prefix}$serverName", embedUrl, headers = headers))
+                }
+            }
+        }
+    }
+
+    // ============================ Preferences & Sorting ============================
+
+    private fun List<Video>.sortVideos(): List<Video> {
+        val prefServer = preferences.getString(PREF_SERVER_KEY, PREF_SERVER_DEFAULT) ?: PREF_SERVER_DEFAULT
+        val prefLang = preferences.getString(PREF_LANG_KEY, PREF_LANG_DEFAULT) ?: PREF_LANG_DEFAULT
+        val prefQuality = preferences.getString(PREF_QUALITY_KEY, PREF_QUALITY_DEFAULT) ?: PREF_QUALITY_DEFAULT
+
+        return this.sortedWith(
+            compareBy(
+                { if (prefLang == "ALL") 0 else if (it.quality.contains(prefLang, ignoreCase = true)) 1 else 0 },
+                { if (it.quality.contains(prefServer, ignoreCase = true)) 1 else 0 },
+                { if (it.quality.contains(prefQuality, ignoreCase = true)) 1 else 0 }
+            )
+        ).reversed()
+    }
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        ListPreference(screen.context).apply {
+            key = PREF_SERVER_KEY
+            title = "Servidor preferido"
+            entries = SERVER_ENTRIES
+            entryValues = SERVER_VALUES
+            setDefaultValue(PREF_SERVER_DEFAULT)
+            summary = "%s"
+        }.also(screen::addPreference)
+
+        ListPreference(screen.context).apply {
+            key = PREF_LANG_KEY
+            title = "Idioma / Tipo de audio preferido"
+            entries = LANG_ENTRIES
+            entryValues = LANG_VALUES
+            setDefaultValue(PREF_LANG_DEFAULT)
+            summary = "%s"
+        }.also(screen::addPreference)
+
+        ListPreference(screen.context).apply {
+            key = PREF_QUALITY_KEY
+            title = "Calidad preferida"
+            entries = QUALITY_ENTRIES
+            entryValues = QUALITY_VALUES
+            setDefaultValue(PREF_QUALITY_DEFAULT)
+            summary = "%s"
+        }.also(screen::addPreference)
     }
 }
