@@ -10,6 +10,7 @@ on:
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradle.properties'
+      - 'signingkey.jks'
   workflow_dispatch:
 
 concurrency:
@@ -56,7 +57,7 @@ jobs:
           mkdir -p apk_repo/icon
           find src -name "*.apk" -exec cp {} apk_repo/apk/ \;
           find src -name "ic_launcher.png" -exec cp {} apk_repo/icon/ \;
-          python3 .github/scripts/generate-repo-index.py --apk-dir apk_repo/apk --out apk_repo --repo-url "https://pepethecarton17.github.io/unbox_extensions" --repo-name "Unbox Extensions"
+          python3 .github/scripts/generate-repo-index.py --apk-dir apk_repo/apk --out apk_repo --repo-url "https://pepethecarton17.github.io/unbox_extensions" --repo-name "Unbox Extensions" --fingerprint "2f4cdf7ed264f6e6aa0d7655b7d6222df6d9f0ffde924f0eea4c57be2dc8c75c"
 
       - name: Deploy to GitHub Pages (gh-pages)
         uses: peaceiris/actions-gh-pages@v4

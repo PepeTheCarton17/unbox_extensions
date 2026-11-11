@@ -16,10 +16,23 @@ android {
         versionName = "16.1"
     }
 
+    base {
+        archivesName.set("aniyomi-es.animeav1-v16.1")
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("signingkey.jks")
+            storePassword = "unboxpassword"
+            keyAlias = "unbox"
+            keyPassword = "unboxpassword"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
     }
