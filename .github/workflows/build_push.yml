@@ -1,0 +1,67 @@
+name: Build & Publish Extensions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - '.github/workflows/build_push.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Extension APKs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build APKs
+        run: |
+          chmod +x gradlew || true
+          ./gradlew assembleRelease --stacktrace
+
+      - name: Sign APKs
+        uses: r0adkll/sign-android-release@v1
+        id: sign_app
+        with:
+          releaseDirectory: src/es/animeav1/build/outputs/apk/release
+          signingKey: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        continue-on-error: true
+
+      - name: Collect Artifacts & Generate Repo Index
+        run: |
+          mkdir -p apk_repo/apk
+          mkdir -p apk_repo/icon
+          find src -name "*.apk" -exec cp {} apk_repo/apk/ \;
+          find src -name "ic_launcher.png" -exec cp {} apk_repo/icon/ \;
+          python3 .github/scripts/generate-repo-index.py --apk-dir apk_repo/apk --output-dir apk_repo
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./apk_repo
+          keep_files: false

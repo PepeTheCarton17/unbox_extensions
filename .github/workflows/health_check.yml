@@ -1,0 +1,37 @@
+name: Nightly Health & Protection Monitor
+
+on:
+  schedule:
+    - cron: '0 4 * * *' # Todos los días a las 04:00 UTC
+  workflow_dispatch:
+
+jobs:
+  health_check:
+    name: Check Extensions & Upstream Challenge Bypasses
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install requests beautifulsoup4 pillow
+
+      - name: Monitor Upstream Challenge Updates (Anubis, etc.)
+        run: |
+          python3 .github/scripts/interceptor-monitor.py --check-now
+
+      - name: Create Issue if Challenge Changed
+        if: hashFiles('challenge_patch_report.md') != ''
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "Alerta de Actualización: Desafío o Interceptor Upstream Modificado"
+          content-filepath: challenge_patch_report.md
+          labels: automated-maintenance, protection-update
+        continue-on-error: true
