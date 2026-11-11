@@ -19,7 +19,7 @@ class StreamWishExtractor(private val client: OkHttpClient) {
         val headers = Headers.Builder().set("Referer", url).build()
 
         return listOf(
-            Video(streamUrl, "${videoNameHost}HLS", streamUrl, headers = headers)
+            Video(videoUrl = streamUrl, videoTitle = "${videoNameHost}HLS", headers = headers)
         )
     }
 }

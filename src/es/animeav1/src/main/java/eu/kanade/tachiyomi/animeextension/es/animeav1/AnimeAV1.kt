@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -199,7 +200,7 @@ class AnimeAV1 : ParsedAnimeHttpSource() {
                 else -> {
                     // Servidores con enlace directo
                     if (embedUrl.endsWith(".m3u8") || embedUrl.endsWith(".mp4")) {
-                        videoList.add(Video(embedUrl, serverName, embedUrl, headers = headers))
+                        videoList.add(Video(videoUrl = embedUrl, videoTitle = serverName, headers = headers))
                     }
                 }
             }
