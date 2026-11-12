@@ -98,6 +98,7 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
 
         val img = element.selectFirst("img")
         anime.thumbnail_url = img?.attr("src") ?: img?.attr("data-src")
+        anime.description = element.selectFirst("p")?.text()?.trim()
         return anime
     }
 
@@ -137,11 +138,10 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
         filterBlacklistedAnimes(super.searchAnimeParse(response))
 
     /**
-     * Filtra animes cuyo campo `genre` contenga alguna de las palabras
+     * Filtra animes cuyo genero, titulo o sinopsis contenga alguna de las palabras
      * de la lista negra configurada por el usuario (texto libre, separado por comas).
      *
-     * Ejemplo de valor guardado: "ecchi, gore, harem"
-     * Esto eliminara del catalogo cualquier anime que tenga los generos Ecchi, Gore o Harem.
+     * Ejemplo: "ecchi, gore, harem, isekai"
      */
     private fun filterBlacklistedAnimes(page: AnimesPage): AnimesPage {
         val rawBlacklist = preferences.getString(PREF_GENRE_BLACKLIST_KEY, PREF_GENRE_BLACKLIST_DEFAULT) ?: ""
@@ -154,7 +154,13 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
 
         val filtered = page.animes.filterNot { anime ->
             val genreLower = anime.genre?.lowercase() ?: ""
-            blacklistWords.any { word -> genreLower.contains(word) }
+            val titleLower = anime.title.lowercase()
+            val descLower = anime.description?.lowercase() ?: ""
+            blacklistWords.any { word ->
+                (genreLower.isNotEmpty() && genreLower.contains(word)) ||
+                titleLower.contains(word) ||
+                (descLower.isNotEmpty() && descLower.contains(word))
+            }
         }
         return AnimesPage(filtered, page.hasNextPage)
     }

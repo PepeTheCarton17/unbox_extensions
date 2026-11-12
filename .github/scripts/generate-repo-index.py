@@ -14,9 +14,11 @@ import os
 import re
 import sys
 import zipfile
+import subprocess
+import shutil
 from pathlib import Path
 
-DEFAULT_FINGERPRINT = "f69140e1e75ae231d23f4820211adab2333e83a5249e4140f392e707cfe491b8"
+DEFAULT_FINGERPRINT = "2f4cdf7ed264f6e6aa0d7655b7d6222df6d9f0ffde924f0eea4c57be2dc8c75c"
 
 def get_file_sha256(filepath: Path) -> str:
     h = hashlib.sha256()
@@ -26,21 +28,22 @@ def get_file_sha256(filepath: Path) -> str:
     return h.hexdigest()
 
 def extract_signing_fingerprint_from_apk(apk_path: Path) -> str:
-    """Extrae la huella SHA-256 del certificado X.509 embebido en el APK."""
+    """Extrae la huella SHA-256 del certificado usando keytool o el fingerprint canónico."""
     try:
-        with zipfile.ZipFile(apk_path) as z:
-            for item in z.namelist():
-                if item.startswith("META-INF/") and (item.endswith(".RSA") or item.endswith(".DSA")):
-                    data = z.read(item)
-                    idx = data.find(b'\xa0')
-                    if idx != -1:
-                        cert_start = data.find(b'\x30\x82', idx)
-                        if cert_start != -1:
-                            length = int.from_bytes(data[cert_start+2:cert_start+4], 'big') + 4
-                            cert_der = data[cert_start:cert_start+length]
-                            return hashlib.sha256(cert_der).hexdigest()
+        res = subprocess.run(
+            ["keytool", "-printcert", "-jarfile", str(apk_path)],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if res.returncode == 0:
+            m = re.search(r'SHA256:\s*([A-Fa-f0-9:]+)', res.stdout)
+            if m:
+                clean_fp = m.group(1).replace(":", "").lower().strip()
+                if len(clean_fp) == 64:
+                    return clean_fp
     except Exception as e:
-        print(f"[!] No se pudo extraer certificado de {apk_path}: {e}")
+        print(f"[!] Extracción con keytool omitida: {e}")
     return DEFAULT_FINGERPRINT
 
 def extract_apk_metadata(apk_path: Path) -> tuple[dict, Path]:
@@ -110,10 +113,15 @@ def generate_index(apk_dir: Path, output_dir: Path, repo_name: str, repo_url: st
         extensions.append(meta)
         print(f"  [+] {meta['name']} (v{meta['version']}, {meta['lang']}) -> {meta['apk']}")
 
+        # Asegurar copia en la raíz de output_dir para URLs directas de descarga
+        root_dest = output_dir / meta["apk"]
+        if real_path != root_dest and not root_dest.exists():
+            shutil.copy2(real_path, root_dest)
+
         # Si el fingerprint proporcionado es el default o vacío, intentar extraerlo del APK real
         if detected_fingerprint in ("", DEFAULT_FINGERPRINT):
             fp = extract_signing_fingerprint_from_apk(real_path)
-            if fp:
+            if fp and len(fp) == 64:
                 detected_fingerprint = fp
 
         # Asegurar icono con nombre del paquete: icon/{pkg}.png

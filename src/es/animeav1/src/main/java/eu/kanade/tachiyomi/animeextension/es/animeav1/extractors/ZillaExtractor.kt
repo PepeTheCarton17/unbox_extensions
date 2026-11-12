@@ -12,7 +12,7 @@ class ZillaExtractor(private val client: OkHttpClient) {
 
         val playlistUrl = "https://player.zilla-networks.com/m3u8/$hash"
 
-        // Cabeceras exactas que Cloudflare exige en Zilla para evitar el 403 Forbidden
+        // Cabeceras exactas que Cloudflare exige en Zilla para evitar el 403 Forbidden y caidas de segmentos
         val videoHeaders = Headers.Builder()
             .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
             .set("Referer", "https://player.zilla-networks.com/play/$hash")
@@ -21,6 +21,7 @@ class ZillaExtractor(private val client: OkHttpClient) {
             .set("Sec-Fetch-Mode", "cors")
             .set("Sec-Fetch-Dest", "empty")
             .set("Accept", "*/*")
+            .set("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
             .build()
 
         return runCatching {

@@ -56,9 +56,10 @@ jobs:
           mkdir -p apk_repo/apk
           mkdir -p apk_repo/icon
           find src -name "*.apk" -exec cp {} apk_repo/apk/ \;
+          find src -name "*.apk" -exec cp {} apk_repo/ \;
           find src -name "ic_launcher.png" -exec cp {} apk_repo/icon/ic_launcher.png \;
           find src -name "ic_launcher.png" -exec cp {} apk_repo/icon/eu.kanade.tachiyomi.animeextension.es.animeav1.png \;
-          python3 .github/scripts/generate-repo-index.py --apk-dir apk_repo/apk --out apk_repo --repo-url "https://raw.githubusercontent.com/PepeTheCarton17/unbox_extensions/gh-pages" --repo-name "Unbox Extensions"
+          python3 .github/scripts/generate-repo-index.py --apk-dir apk_repo/apk --out apk_repo --repo-url "https://raw.githubusercontent.com/PepeTheCarton17/unbox_extensions/gh-pages" --repo-name "Unbox Extensions" --fingerprint "2f4cdf7ed264f6e6aa0d7655b7d6222df6d9f0ffde924f0eea4c57be2dc8c75c"
 
       - name: Deploy to GitHub Pages (gh-pages)
         uses: peaceiris/actions-gh-pages@v4

@@ -12,12 +12,12 @@ android {
         applicationId = "eu.kanade.tachiyomi.animeextension.es.animeav1"
         minSdk = 21
         targetSdk = 34
-        versionCode = 4
-        versionName = "16.4"
+        versionCode = 9
+        versionName = "16.9"
     }
 
     base {
-        archivesName.set("aniyomi-es.animeav1-v16.4")
+        archivesName.set("aniyomi-es.animeav1-v16.9")
     }
 
     signingConfigs {
