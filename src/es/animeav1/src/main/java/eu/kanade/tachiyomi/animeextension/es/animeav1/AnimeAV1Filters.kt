@@ -20,7 +20,8 @@ object AnimeAV1Filters {
         AnimeFilter.CheckBox(name, state)
 
     class TypesFilter : CheckBoxFilterList("Tipo", TYPES.map { CheckBoxVal(it.first, it.second) })
-    class GenresFilter : CheckBoxFilterList("Género", GENRES.map { CheckBoxVal(it.first, it.second) })
+    class GenresFilter : CheckBoxFilterList("Género (#)", GENRES.map { CheckBoxVal(it.first, it.second) })
+    class BlacklistGenresFilter : CheckBoxFilterList("Lista Negra de Géneros (# - Excluir)", GENRES.map { CheckBoxVal(it.first, it.second) })
     class StateFilter : QueryPartFilter("Estado", STATES)
     class SortFilter : QueryPartFilter("Orden", SORTS)
     class AudioFilter : QueryPartFilter("Audio / Doblaje", AUDIOS)
@@ -30,13 +31,24 @@ object AnimeAV1Filters {
         AudioFilter(),
         TypesFilter(),
         GenresFilter(),
+        BlacklistGenresFilter(),
         StateFilter(),
         SortFilter(),
     )
 
     fun buildQuery(page: Int, query: String, filters: AnimeFilterList): String {
-        if (query.isNotBlank()) {
-            return "/catalogo?search=$query&page=$page"
+        val cleanQuery = query.trim()
+        val audioFilter = filters.filterIsInstance<AudioFilter>().firstOrNull()
+        val isDubSelected = audioFilter?.let { it.vals[it.state].second == "dub" } ?: false
+
+        val finalQuery = when {
+            isDubSelected && cleanQuery.isNotBlank() -> "$cleanQuery latino"
+            isDubSelected -> "latino"
+            else -> cleanQuery
+        }
+
+        if (finalQuery.isNotBlank()) {
+            return "/catalogo?search=$finalQuery&page=$page"
         }
         val sb = StringBuilder("/catalogo?page=$page")
         for (filter in filters) {
@@ -55,12 +67,6 @@ object AnimeAV1Filters {
                 }
                 is StateFilter -> sb.append(filter.toQueryParam("status"))
                 is SortFilter -> sb.append(filter.toQueryParam("order"))
-                is AudioFilter -> {
-                    val audioVal = filter.vals[filter.state].second
-                    if (audioVal.isNotEmpty()) {
-                        sb.append("&audio=").append(audioVal)
-                    }
-                }
                 else -> {}
             }
         }

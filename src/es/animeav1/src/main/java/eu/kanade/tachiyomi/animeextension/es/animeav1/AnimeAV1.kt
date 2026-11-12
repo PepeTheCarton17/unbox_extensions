@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.animeextension.es.animeav1
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.ListPreference
+import androidx.preference.MultiSelectListPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animeextension.es.animeav1.extractors.Mp4uploadExtractor
 import eu.kanade.tachiyomi.animeextension.es.animeav1.extractors.StreamWishExtractor
@@ -11,6 +12,7 @@ import eu.kanade.tachiyomi.animeextension.es.animeav1.extractors.ZillaExtractor
 import eu.kanade.tachiyomi.animeextension.es.animeav1.network.AnubisInterceptor
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
+import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
@@ -59,6 +61,22 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
         private const val PREF_QUALITY_DEFAULT = "1080p"
         private val QUALITY_ENTRIES = arrayOf("1080p", "720p", "480p", "360p")
         private val QUALITY_VALUES = arrayOf("1080p", "720p", "480p", "360p")
+
+        private const val PREF_SERVER_BLACKLIST_KEY = "server_blacklist"
+        private val BLACKLIST_ENTRIES = arrayOf("Zilla (HLS)", "Voe", "MP4Upload", "Byse (StreamWish)", "UPNShare")
+        private val BLACKLIST_VALUES = arrayOf("zilla", "voe", "mp4upload", "byse", "upnshare")
+
+        private const val PREF_GENRE_BLACKLIST_KEY = "genre_blacklist"
+        private val GENRE_BLACKLIST_ENTRIES = arrayOf(
+            "Acción", "Aventura", "Ciencia Ficción", "Comedia", "Deportes", "Drama",
+            "Ecchi", "Fantasía", "Gore", "Harem", "Isekai", "Mecha", "Romance",
+            "Sobrenatural", "Suspenso", "Terror"
+        )
+        private val GENRE_BLACKLIST_VALUES = arrayOf(
+            "accion", "aventura", "ciencia-ficcion", "comedia", "deportes", "drama",
+            "ecchi", "fantasia", "gore", "harem", "isekai", "mecha", "romance",
+            "sobrenatural", "suspenso", "terror"
+        )
     }
 
     // ============================== Popular Anime ==============================
@@ -94,6 +112,9 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
 
     override fun popularAnimeNextPageSelector(): String = "a:contains(»)"
 
+    override fun popularAnimeParse(response: Response): AnimesPage =
+        filterBlacklistedAnimes(super.popularAnimeParse(response))
+
     // ============================== Latest Updates =============================
 
     override fun latestUpdatesRequest(page: Int): Request =
@@ -104,6 +125,9 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
     override fun latestUpdatesFromElement(element: Element): SAnime = popularAnimeFromElement(element)
 
     override fun latestUpdatesNextPageSelector(): String = popularAnimeNextPageSelector()
+
+    override fun latestUpdatesParse(response: Response): AnimesPage =
+        filterBlacklistedAnimes(super.latestUpdatesParse(response))
 
     // =============================== Search Anime ==============================
 
@@ -117,6 +141,20 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
     override fun searchAnimeFromElement(element: Element): SAnime = popularAnimeFromElement(element)
 
     override fun searchAnimeNextPageSelector(): String = popularAnimeNextPageSelector()
+
+    override fun searchAnimeParse(response: Response): AnimesPage =
+        filterBlacklistedAnimes(super.searchAnimeParse(response))
+
+    private fun filterBlacklistedAnimes(page: AnimesPage): AnimesPage {
+        val blacklisted = preferences.getStringSet(PREF_GENRE_BLACKLIST_KEY, emptySet()) ?: emptySet()
+        if (blacklisted.isEmpty()) return page
+
+        val filtered = page.animes.filterNot { anime ->
+            val titleLower = anime.title.lowercase()
+            blacklisted.any { b -> b.isNotEmpty() && titleLower.contains(b) }
+        }
+        return AnimesPage(filtered, page.hasNextPage)
+    }
 
     override fun getFilterList(): AnimeFilterList = AnimeAV1Filters.getFilterList()
 
@@ -250,7 +288,13 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
     }
 
     private fun extractVideosForServer(videoList: MutableList<Video>, serverName: String, embedUrl: String, prefix: String) {
-        when (serverName.lowercase()) {
+        val blacklist = preferences.getStringSet(PREF_SERVER_BLACKLIST_KEY, emptySet()) ?: emptySet()
+        val sLower = serverName.lowercase()
+        if (blacklist.any { b -> b.isNotEmpty() && (sLower.contains(b) || (b == "zilla" && (sLower.contains("hls") || sLower.contains("zilla")))) }) {
+            return
+        }
+
+        when (sLower) {
             "mp4upload" -> {
                 runCatching {
                     videoList.addAll(Mp4uploadExtractor(client).getVideoFromUrl(embedUrl, headers, prefix = "${prefix}MP4Upload - "))
@@ -321,6 +365,24 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
             entryValues = QUALITY_VALUES
             setDefaultValue(PREF_QUALITY_DEFAULT)
             summary = "%s"
+        }.also(screen::addPreference)
+
+        MultiSelectListPreference(screen.context).apply {
+            key = PREF_SERVER_BLACKLIST_KEY
+            title = "Lista Negra de Servidores (Ocultar)"
+            entries = BLACKLIST_ENTRIES
+            entryValues = BLACKLIST_VALUES
+            setDefaultValue(emptySet<String>())
+            summary = "Selecciona servidores a desactivar para evitar errores (ej. Zilla)"
+        }.also(screen::addPreference)
+
+        MultiSelectListPreference(screen.context).apply {
+            key = PREF_GENRE_BLACKLIST_KEY
+            title = "Lista Negra de Géneros (# - Ocultar)"
+            entries = GENRE_BLACKLIST_ENTRIES
+            entryValues = GENRE_BLACKLIST_VALUES
+            setDefaultValue(emptySet<String>())
+            summary = "Oculta permanentemente animes con estos géneros o etiquetas"
         }.also(screen::addPreference)
     }
 }
