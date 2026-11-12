@@ -21,7 +21,6 @@ object AnimeAV1Filters {
 
     class TypesFilter : CheckBoxFilterList("Tipo", TYPES.map { CheckBoxVal(it.first, it.second) })
     class GenresFilter : CheckBoxFilterList("Género (#)", GENRES.map { CheckBoxVal(it.first, it.second) })
-    class BlacklistGenresFilter : CheckBoxFilterList("Lista Negra de Géneros (# - Excluir)", GENRES.map { CheckBoxVal(it.first, it.second) })
     class StateFilter : QueryPartFilter("Estado", STATES)
     class SortFilter : QueryPartFilter("Orden", SORTS)
     class AudioFilter : QueryPartFilter("Audio / Doblaje", AUDIOS)
@@ -31,7 +30,6 @@ object AnimeAV1Filters {
         AudioFilter(),
         TypesFilter(),
         GenresFilter(),
-        BlacklistGenresFilter(),
         StateFilter(),
         SortFilter(),
     )

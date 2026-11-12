@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.animeextension.es.animeav1
 
 import android.app.Application
 import android.content.SharedPreferences
+import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.MultiSelectListPreference
 import androidx.preference.PreferenceScreen
@@ -66,17 +67,8 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
         private val BLACKLIST_ENTRIES = arrayOf("Zilla (HLS)", "Voe", "MP4Upload", "Byse (StreamWish)", "UPNShare")
         private val BLACKLIST_VALUES = arrayOf("zilla", "voe", "mp4upload", "byse", "upnshare")
 
-        private const val PREF_GENRE_BLACKLIST_KEY = "genre_blacklist"
-        private val GENRE_BLACKLIST_ENTRIES = arrayOf(
-            "Acción", "Aventura", "Ciencia Ficción", "Comedia", "Deportes", "Drama",
-            "Ecchi", "Fantasía", "Gore", "Harem", "Isekai", "Mecha", "Romance",
-            "Sobrenatural", "Suspenso", "Terror"
-        )
-        private val GENRE_BLACKLIST_VALUES = arrayOf(
-            "accion", "aventura", "ciencia-ficcion", "comedia", "deportes", "drama",
-            "ecchi", "fantasia", "gore", "harem", "isekai", "mecha", "romance",
-            "sobrenatural", "suspenso", "terror"
-        )
+        private const val PREF_GENRE_BLACKLIST_KEY = "genre_blacklist_text"
+        private const val PREF_GENRE_BLACKLIST_DEFAULT = ""
     }
 
     // ============================== Popular Anime ==============================
@@ -90,7 +82,6 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
         val anime = SAnime.create()
         val link = element.selectFirst("a[href*=/media/]")
         val href = link?.attr("href") ?: ""
-        // Si el enlace apunta a un episodio /media/{slug}/{num}, convertir a /media/{slug}
         val cleanHref = if (href.matches(Regex(""".+/media/[^/]+/\d+$"""))) {
             href.substringBeforeLast("/")
         } else {
@@ -145,13 +136,25 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
     override fun searchAnimeParse(response: Response): AnimesPage =
         filterBlacklistedAnimes(super.searchAnimeParse(response))
 
+    /**
+     * Filtra animes cuyo campo `genre` contenga alguna de las palabras
+     * de la lista negra configurada por el usuario (texto libre, separado por comas).
+     *
+     * Ejemplo de valor guardado: "ecchi, gore, harem"
+     * Esto eliminara del catalogo cualquier anime que tenga los generos Ecchi, Gore o Harem.
+     */
     private fun filterBlacklistedAnimes(page: AnimesPage): AnimesPage {
-        val blacklisted = preferences.getStringSet(PREF_GENRE_BLACKLIST_KEY, emptySet()) ?: emptySet()
-        if (blacklisted.isEmpty()) return page
+        val rawBlacklist = preferences.getString(PREF_GENRE_BLACKLIST_KEY, PREF_GENRE_BLACKLIST_DEFAULT) ?: ""
+        val blacklistWords = rawBlacklist
+            .split(",")
+            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+
+        if (blacklistWords.isEmpty()) return page
 
         val filtered = page.animes.filterNot { anime ->
-            val titleLower = anime.title.lowercase()
-            blacklisted.any { b -> b.isNotEmpty() && titleLower.contains(b) }
+            val genreLower = anime.genre?.lowercase() ?: ""
+            blacklistWords.any { word -> genreLower.contains(word) }
         }
         return AnimesPage(filtered, page.hasNextPage)
     }
@@ -193,7 +196,7 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
         val document = response.asJsoup()
         val episodeList = ArrayList<SEpisode>()
 
-        // 1. Extracción directa de enlaces en el HTML
+        // 1. Extraccion directa de enlaces en el HTML
         val links = document.select("a[href^=/media/], a[href*=/media/]")
             .toList()
             .filter { it.attr("href").matches(Regex(""".+/media/[^/]+/\d+$""")) }
@@ -212,7 +215,7 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
             return episodeList.distinctBy { it.episode_number }
         }
 
-        // 2. Extracción de respaldo desde el estado hidratado de SvelteKit
+        // 2. Extraccion de respaldo desde el estado hidratado de SvelteKit
         val scripts = document.select("script")
         for (script in scripts) {
             val content = script.data()
@@ -376,13 +379,13 @@ class AnimeAV1 : ParsedAnimeHttpSource(), ConfigurableAnimeSource {
             summary = "Selecciona servidores a desactivar para evitar errores (ej. Zilla)"
         }.also(screen::addPreference)
 
-        MultiSelectListPreference(screen.context).apply {
+        EditTextPreference(screen.context).apply {
             key = PREF_GENRE_BLACKLIST_KEY
-            title = "Lista Negra de Géneros (# - Ocultar)"
-            entries = GENRE_BLACKLIST_ENTRIES
-            entryValues = GENRE_BLACKLIST_VALUES
-            setDefaultValue(emptySet<String>())
-            summary = "Oculta permanentemente animes con estos géneros o etiquetas"
+            title = "Lista Negra de Géneros (Ocultar)"
+            setDefaultValue(PREF_GENRE_BLACKLIST_DEFAULT)
+            summary = "Escribe géneros separados por comas para excluirlos del catálogo.\nEjemplo: ecchi, gore, harem"
+            dialogTitle = "Lista Negra de Géneros"
+            dialogMessage = "Escribe los géneros que deseas ocultar, separados por comas.\nEjemplo: ecchi, gore, harem, isekai"
         }.also(screen::addPreference)
     }
 }
