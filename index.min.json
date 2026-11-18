@@ -1,0 +1,1 @@
+[{"name":"Aniyomi: AnimeAV1","pkg":"eu.kanade.tachiyomi.animeextension.es.animeav1","apk":"aniyomi-es.animeav1-v16.9-release.apk","lang":"es","code":9,"version":"16.9","nsfw":0,"sha256":"01939a5700f0838a6ad5f23a20da01f565cb6455fe72ed944031a30bd6bcfbd5","size":1476088,"sources":[{"name":"AnimeAV1","lang":"es","id":155729878633642494,"baseUrl":"https://animeav1.com"}]}]
