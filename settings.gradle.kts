@@ -18,4 +18,3 @@ dependencyResolutionManagement {
 rootProject.name = "unbox_extensions"
 
 include(":src:es:animeav1")
-include(":src:es:pluto")

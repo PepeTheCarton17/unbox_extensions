@@ -1,29 +1,37 @@
-# Pluto - Nekoyomi Extension Repository
+# Unbox Extensions Repository
 
-Repositorio de extensiones para **Nekoyomi** y **Aniyomi** generado automáticamente con [AEXT](https://github.com/PepeTheCarton17/AEXTensions_box).
+Repositorio oficial de extensiones para **Nekoyomi** y **Aniyomi** mantenido por [PepeTheCarton17](https://github.com/PepeTheCarton17).
 
 ---
 
-## Instalación en 1 Clic
+## Agregar Repositorio en 1 Clic
 
 | Aplicación | Enlace Directo (Deep Link) |
 | :--- | :--- |
-| **Nekoyomi** | [Añadir Repositorio a Nekoyomi](nekoyomi://add-repo?url=https%3A%2F%2Fraw.githubusercontent.com%2FPepeTheCarton17%2Funbox_extensions%2Fgh-pages%2Findex.min.json) |
-| **Aniyomi** | [Añadir Repositorio a Aniyomi](aniyomi://add-repo?url=https%3A%2F%2Fraw.githubusercontent.com%2FPepeTheCarton17%2Funbox_extensions%2Fgh-pages%2Findex.min.json) |
+| **Nekoyomi** | [Añadir a Nekoyomi](nekoyomi://add-repo?url=https%3A%2F%2Fraw.githubusercontent.com%2FPepeTheCarton17%2Funbox_extensions%2Fgh-pages%2Findex.min.json) |
+| **Aniyomi** | [Añadir a Aniyomi](aniyomi://add-repo?url=https%3A%2F%2Fraw.githubusercontent.com%2FPepeTheCarton17%2Funbox_extensions%2Fgh-pages%2Findex.min.json) |
 
-### Instalación Manual:
+### Agregar Manualmente:
 1. Abre **Nekoyomi** o **Aniyomi**.
 2. Ve a **Más** → **Ajustes** → **Explorar** → **Repositorios de extensiones**.
-3. Presiona el botón **+** y agrega la URL de `index.min.json` de la rama `gh-pages`.
+3. Presiona el botón **+** y añade la siguiente URL:
+```text
+https://raw.githubusercontent.com/PepeTheCarton17/unbox_extensions/gh-pages/index.min.json
+```
 
 ---
 
-## Información de la Extensión
-- **Nombre:** Pluto
-- **Idioma:** es
-- **Versión:** 16.1
-- **Fuente original:** https://pluto.tv
-- **Firma:** Determinista e inmutable (`signingkey.jks`) para permitir actualizaciones continuas sin error de firma.
+## Extensiones Disponibles
+
+### 1. **AnimeAV1 (`es`)** — v16.3
+- **Fuente:** `https://animeav1.com`
+- **Idioma:** Español
+- **Servidores Soportados:** MP4Upload (multicalidad 1080p, 720p, etc.), Voe, Byse (StreamWish), Zilla (HLS).
+- **Características:**
+  - **Filtro DUB / SUB Real:** Búsqueda dedicada de doblaje latino (`search=latino`).
+  - **Lista Negra de Servidores:** Posibilidad de desactivar servidores (como Zilla) desde los ajustes de la extensión.
+  - **Lista Negra de Géneros (#):** Exclusión de categorías (Aventura, Ecchi, Gore, etc.) en catálogo y permanente en ajustes.
+  - **Firma Determinista Persistente:** Firma inmutable con `signingkey.jks` para garantizar actualizaciones seguras sin conflictos de certificados.
 
 ---
 
